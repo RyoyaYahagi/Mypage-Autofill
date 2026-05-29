@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "My Page Autofill",
+  "version": "0.1.0",
+  "description": "AXOL/SNAR系マイページのプロフィール入力をローカル保存データから補助します。",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://*.axol.jp/*", "https://*.snar.jp/*"],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "My Page Autofill"
+  },
+  "options_page": "options/options.html"
+}
