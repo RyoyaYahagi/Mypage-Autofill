@@ -55,6 +55,14 @@
     };
   }
 
+  function splitEmail(value) {
+    const [account, ...domainParts] = String(value || "").trim().split("@");
+    return {
+      account: domainParts.length ? account : "",
+      domain: domainParts.join("@")
+    };
+  }
+
   function getElementContext(element) {
     const parts = [
       element.name,
@@ -265,6 +273,12 @@
     return count;
   }
 
+  function markNamesUsed(names, used) {
+    names.forEach((name) => {
+      document.querySelectorAll(`[name="${CSS.escape(name)}"]`).forEach((element) => used.add(element));
+    });
+  }
+
   function fillE2rProfile(profile, used) {
     if (!location.hostname.endsWith("e2r.jp")) return 0;
 
@@ -331,6 +345,90 @@
     return count;
   }
 
+  function fillIwebsProfile(profile, used) {
+    if (!location.hostname.endsWith("i-webs.jp")) return 0;
+
+    let count = 0;
+    const phoneDigits = compactDigits(profile.phone);
+    const postalDigits = compactDigits(profile.postalCode);
+    const birthDate = String(profile.birthDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const graduationDate = String(profile.graduationDate || "").match(/^(\d{4})-(\d{2})$/);
+    const address = splitJapaneseAddress(profile.address);
+    const email = splitEmail(profile.email);
+    const genderValues = { 男性: "1", 男: "1", 女性: "2", 女: "2" };
+
+    const directValues = [
+      ["kname1", profile.lastName],
+      ["kname2", profile.firstName],
+      ["yname1", profile.lastNameKana],
+      ["yname2", profile.firstNameKana],
+      ["gken", address.prefecture],
+      ["gadrs1", address.rest]
+    ];
+
+    for (const [name, value] of directValues) {
+      if (value && fillByName(name, value)) count += 1;
+      markNamesUsed([name], used);
+    }
+
+    if (genderValues[profile.gender] && fillRadioByNameValue("sexcd", genderValues[profile.gender])) count += 1;
+    markNamesUsed(["sexcd"], used);
+
+    if (birthDate) {
+      count += fillSplitByNames(["ybirth", "mbirth", "dbirth"], [
+        birthDate[1],
+        birthDate[2],
+        birthDate[3]
+      ]);
+      markNamesUsed(["ybirth", "mbirth", "dbirth"], used);
+    }
+
+    if (postalDigits) {
+      count += fillSplitByNames(["gyubin1", "gyubin2"], [
+        postalDigits.slice(0, 3),
+        postalDigits.slice(3)
+      ]);
+      markNamesUsed(["gyubin1", "gyubin2"], used);
+    }
+
+    if (phoneDigits) {
+      count += fillSplitByNames(["kttel1", "kttel2", "kttel3"], [
+        phoneDigits.slice(0, 3),
+        phoneDigits.slice(3, 7),
+        phoneDigits.slice(7)
+      ]);
+      markNamesUsed(["gtel1", "gtel2", "gtel3", "kttel1", "kttel2", "kttel3"], used);
+    }
+
+    if (graduationDate) {
+      count += fillSplitByNames(["syear", "smonth"], [
+        graduationDate[1],
+        graduationDate[2]
+      ]);
+      fillByName("shikbn", "卒業（修了）見込み");
+      markNamesUsed(["syear", "smonth", "shikbn"], used);
+    }
+
+    if (email.account && email.domain) {
+      const emailNames = [
+        ["account1", email.account],
+        ["domain1", email.domain],
+        ["account2", email.account],
+        ["domain2", email.domain],
+        ["account3", email.account],
+        ["domain3", email.domain],
+        ["account4", email.account],
+        ["domain4", email.domain]
+      ];
+      for (const [name, value] of emailNames) {
+        if (fillByName(name, value)) count += 1;
+      }
+      markNamesUsed(emailNames.map(([name]) => name), used);
+    }
+
+    return count;
+  }
+
   function fillControl(element, value) {
     if (!value || element.disabled || element.readOnly) return false;
 
@@ -367,6 +465,7 @@
 
     const used = new Set();
     let filledCount = fillE2rProfile(profile, used);
+    filledCount += fillIwebsProfile(profile, used);
 
     for (const definition of FIELD_DEFINITIONS) {
       const value = getProfileValue(profile, definition.key);
