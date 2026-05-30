@@ -2,9 +2,9 @@
   "manifest_version": 3,
   "name": "My Page Autofill",
   "version": "0.1.0",
-  "description": "AXOL/SNAR系マイページのプロフィール入力をローカル保存データから補助します。",
+  "description": "AXOL/SNAR/e2r系マイページのプロフィール入力をローカル保存データから補助します。",
   "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["https://*.axol.jp/*", "https://*.snar.jp/*"],
+  "host_permissions": ["https://*.axol.jp/*", "https://*.snar.jp/*", "https://www.e2r.jp/eARTH/*"],
   "action": {
     "default_popup": "popup/popup.html",
     "default_title": "My Page Autofill"

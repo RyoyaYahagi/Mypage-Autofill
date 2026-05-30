@@ -1,6 +1,7 @@
 const TARGET_SITES = [
   { name: "AXOL", pattern: /^https:\/\/[^/]*\.?axol\.jp\// },
-  { name: "SNAR", pattern: /^https:\/\/[^/]*\.?snar\.jp\// }
+  { name: "SNAR", pattern: /^https:\/\/[^/]*\.?snar\.jp\// },
+  { name: "e2r", pattern: /^https:\/\/www\.e2r\.jp\/eARTH\// }
 ];
 
 function getSupportedSite(url) {
@@ -50,13 +51,13 @@ async function initialize() {
 
     pageStatusEl.textContent = supportedSite
       ? `${supportedSite.name}ページで実行できます。`
-      : "AXOL/SNARページを開いてから実行してください。";
+      : "AXOL/SNAR/e2rページを開いてから実行してください。";
     fillButton.disabled = !supportedSite || !ready;
 
     if (!ready) {
       setStatus("先にプロフィール設定を保存してください。", "error");
     } else if (!supportedSite) {
-      setStatus("対象: https://*.axol.jp/*, https://*.snar.jp/*", "error");
+      setStatus("対象: https://*.axol.jp/*, https://*.snar.jp/*, https://www.e2r.jp/eARTH/*", "error");
     } else {
       setStatus("入力内容を確認してから実行してください。");
     }
