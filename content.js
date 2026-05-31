@@ -30,6 +30,12 @@
     return String(value || "").replace(/[^\d]/g, "");
   }
 
+  function toFullWidth(value) {
+    return String(value || "")
+      .replace(/[!-~]/g, (char) => String.fromCharCode(char.charCodeAt(0) + 0xfee0))
+      .replace(/ /g, "　");
+  }
+
   function splitJapaneseAddress(value) {
     const address = String(value || "").trim();
     const prefectures = [
@@ -46,6 +52,30 @@
       prefecture,
       rest: prefecture ? address.slice(prefecture.length).trim() : address
     };
+  }
+
+  function splitJapaneseAddressParts(value) {
+    const { prefecture, rest } = splitJapaneseAddress(value);
+    const normalizedRest = rest.trim();
+    const spacedParts = normalizedRest.split(/\s+/).filter(Boolean);
+    if (spacedParts.length > 1) {
+      return {
+        prefecture,
+        street: spacedParts[0],
+        building: spacedParts.slice(1).join(" ")
+      };
+    }
+
+    const buildingMatch = normalizedRest.match(/^(.+?[0-9０-９一二三四五六七八九十]+(?:[-－ー丁目番地号の][0-9０-９一二三四五六七八九十]+)*)(.+(?:マンション|アパート|ハイツ|コーポ|メゾン|レジデンス|ビル|荘|寮|棟|号室|Ｆ|F).*)$/);
+    if (buildingMatch) {
+      return {
+        prefecture,
+        street: buildingMatch[1],
+        building: buildingMatch[2]
+      };
+    }
+
+    return { prefecture, street: normalizedRest, building: "" };
   }
 
   function splitName(profile) {
@@ -353,7 +383,7 @@
     const postalDigits = compactDigits(profile.postalCode);
     const birthDate = String(profile.birthDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
     const graduationDate = String(profile.graduationDate || "").match(/^(\d{4})-(\d{2})$/);
-    const address = splitJapaneseAddress(profile.address);
+    const address = splitJapaneseAddressParts(profile.address);
     const email = splitEmail(profile.email);
     const genderValues = { 男性: "1", 男: "1", 女性: "2", 女: "2" };
 
@@ -363,7 +393,8 @@
       ["yname1", profile.lastNameKana],
       ["yname2", profile.firstNameKana],
       ["gken", address.prefecture],
-      ["gadrs1", address.rest]
+      ["gadrs1", toFullWidth(address.street)],
+      ["gadrs2", toFullWidth(address.building)]
     ];
 
     for (const [name, value] of directValues) {
@@ -392,13 +423,22 @@
     }
 
     if (phoneDigits) {
-      count += fillSplitByNames(["kttel1", "kttel2", "kttel3"], [
+      const phoneChunks = [
         phoneDigits.slice(0, 3),
         phoneDigits.slice(3, 7),
         phoneDigits.slice(7)
+      ];
+      count += fillSplitByNames(["gtel1", "gtel2", "gtel3"], phoneChunks);
+      count += fillSplitByNames(["kttel1", "kttel2", "kttel3"], [
+        phoneChunks[0],
+        phoneChunks[1],
+        phoneChunks[2]
       ]);
       markNamesUsed(["gtel1", "gtel2", "gtel3", "kttel1", "kttel2", "kttel3"], used);
     }
+
+    if (fillByName("adch", "1")) count += 1;
+    markNamesUsed(["adch", "kyubin1", "kyubin2", "kken", "kadrs1", "kadrs2", "ktel1", "ktel2", "ktel3"], used);
 
     if (graduationDate) {
       count += fillSplitByNames(["syear", "smonth"], [
@@ -414,16 +454,18 @@
         ["account1", email.account],
         ["domain1", email.domain],
         ["account2", email.account],
-        ["domain2", email.domain],
-        ["account3", email.account],
-        ["domain3", email.domain],
-        ["account4", email.account],
-        ["domain4", email.domain]
+        ["domain2", email.domain]
       ];
       for (const [name, value] of emailNames) {
         if (fillByName(name, value)) count += 1;
       }
-      markNamesUsed(emailNames.map(([name]) => name), used);
+      markNamesUsed([
+        ...emailNames.map(([name]) => name),
+        "account3",
+        "domain3",
+        "account4",
+        "domain4"
+      ], used);
     }
 
     return count;
