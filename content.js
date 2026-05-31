@@ -59,23 +59,37 @@
     const normalizedRest = rest.trim();
     const spacedParts = normalizedRest.split(/\s+/).filter(Boolean);
     if (spacedParts.length > 1) {
+      const mainAddress = splitCityAndStreet(spacedParts[0]);
       return {
         prefecture,
-        street: spacedParts[0],
+        city: mainAddress.city,
+        street: mainAddress.street,
         building: spacedParts.slice(1).join(" ")
       };
     }
 
     const buildingMatch = normalizedRest.match(/^(.+?[0-9０-９一二三四五六七八九十]+(?:[-－ー丁目番地号の][0-9０-９一二三四五六七八九十]+)*)(.+(?:マンション|アパート|ハイツ|コーポ|メゾン|レジデンス|ビル|荘|寮|棟|号室|Ｆ|F).*)$/);
     if (buildingMatch) {
+      const mainAddress = splitCityAndStreet(buildingMatch[1]);
       return {
         prefecture,
-        street: buildingMatch[1],
+        city: mainAddress.city,
+        street: mainAddress.street,
         building: buildingMatch[2]
       };
     }
 
-    return { prefecture, street: normalizedRest, building: "" };
+    return { prefecture, ...splitCityAndStreet(normalizedRest), building: "" };
+  }
+
+  function splitCityAndStreet(value) {
+    const address = String(value || "").trim();
+    const match = address.match(/^(.+?(?:市.+?区|郡.+?[町村]|市|区|町|村))(.+)$/);
+    if (!match) return { city: address, street: "" };
+    return {
+      city: match[1],
+      street: match[2]
+    };
   }
 
   function splitName(profile) {
@@ -309,6 +323,15 @@
     });
   }
 
+  function fillDirectValues(values, used) {
+    let count = 0;
+    for (const [name, value] of values) {
+      if (value && fillByName(name, value)) count += 1;
+      markNamesUsed([name], used);
+    }
+    return count;
+  }
+
   function fillE2rProfile(profile, used) {
     if (!location.hostname.endsWith("e2r.jp")) return 0;
 
@@ -317,7 +340,7 @@
     const postalDigits = compactDigits(profile.postalCode);
     const birthDate = String(profile.birthDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
     const graduationDate = String(profile.graduationDate || "").match(/^(\d{4})-(\d{2})$/);
-    const address = splitJapaneseAddress(profile.address);
+    const address = splitJapaneseAddressParts(profile.address);
     const genderValues = { 男性: "1", 女性: "2", その他: "3", 回答しない: "3" };
 
     const directValues = [
@@ -328,21 +351,19 @@
       ["I9", profile.email],
       ["I9_chk", profile.email],
       ["I13", address.prefecture],
-      ["I14", address.rest],
+      ["I14", toFullWidth(address.city)],
+      ["I15", toFullWidth(address.street)],
+      ["I16", toFullWidth(address.building)],
       ["I22", profile.university],
       ["I23", profile.faculty],
       ["I24", profile.department]
     ];
 
-    for (const [name, value] of directValues) {
-      if (value && fillByName(name, value)) {
-        const element = getControlByName(name);
-        if (element) used.add(element);
-        count += 1;
-      }
-    }
+    count += fillDirectValues(directValues, used);
+    markNamesUsed(["I10", "I10_chk"], used);
 
     if (genderValues[profile.gender] && fillRadioByNameValue("I68", genderValues[profile.gender])) count += 1;
+    markNamesUsed(["I68"], used);
 
     if (birthDate) {
       count += fillSplitByNames(["I4_D1", "I4_D2", "I4_D3"], [
@@ -350,12 +371,15 @@
         String(Number(birthDate[2])),
         String(Number(birthDate[3]))
       ]);
+      markNamesUsed(["I4_D1", "I4_D2", "I4_D3"], used);
     }
 
     if (phoneDigits) {
       const chunks = [phoneDigits.slice(0, 3), phoneDigits.slice(3, 7), phoneDigits.slice(7)];
       count += fillSplitByNames(["I5_D1", "I5_D2", "I5_D3"], chunks);
+      count += fillSplitByNames(["I8_D1", "I8_D2", "I8_D3"], chunks);
       count += fillSplitByNames(["I4417_D1", "I4417_D2", "I4417_D3"], chunks);
+      markNamesUsed(["I5_D1", "I5_D2", "I5_D3", "I8_D1", "I8_D2", "I8_D3", "I4417_D1", "I4417_D2", "I4417_D3"], used);
     }
 
     if (postalDigits) {
@@ -363,6 +387,7 @@
         postalDigits.slice(0, 3),
         postalDigits.slice(3)
       ]);
+      markNamesUsed(["I12_D1", "I12_D2"], used);
     }
 
     if (graduationDate) {
@@ -370,7 +395,10 @@
         graduationDate[1],
         String(Number(graduationDate[2]))
       ]);
+      markNamesUsed(["I50_D1", "I50_D2"], used);
     }
+
+    markNamesUsed(["I17_D1", "I17_D2", "I18", "I19", "I20", "I21", "I7_D1", "I7_D2", "I7_D3"], used);
 
     return count;
   }
@@ -393,7 +421,7 @@
       ["yname1", profile.lastNameKana],
       ["yname2", profile.firstNameKana],
       ["gken", address.prefecture],
-      ["gadrs1", toFullWidth(address.street)],
+      ["gadrs1", toFullWidth(`${address.city}${address.street}`)],
       ["gadrs2", toFullWidth(address.building)]
     ];
 
@@ -471,6 +499,146 @@
     return count;
   }
 
+  function fillSnarProfile(profile, used) {
+    if (!location.hostname.endsWith("snar.jp")) return 0;
+
+    let count = 0;
+    const phoneDigits = compactDigits(profile.phone);
+    const postalDigits = compactDigits(profile.postalCode);
+    const birthDate = String(profile.birthDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const graduationDate = String(profile.graduationDate || "").match(/^(\d{4})-(\d{2})$/);
+    const address = splitJapaneseAddressParts(profile.address);
+    const genderValues = { 男性: "rbt_sex1", 男: "rbt_sex1", 女性: "rbt_sex2", 女: "rbt_sex2", その他: "rbt_sex3", 回答しない: "rbt_sex3" };
+
+    count += fillDirectValues([
+      ["tbx_name1", profile.lastName],
+      ["tbx_name2", profile.firstName],
+      ["tbx_kana1", profile.lastNameKana],
+      ["tbx_kana2", profile.firstNameKana],
+      ["tbx_mail", profile.email],
+      ["tbx_mail_R", profile.email],
+      ["ddl_ken", address.prefecture],
+      ["ddl_kenList", address.prefecture],
+      ["tbx_addr1", toFullWidth(`${address.city}${address.street}`)],
+      ["tbx_addr2", toFullWidth(address.building)],
+      ["tbx_school", profile.university],
+      ["tbx_gakubu", profile.faculty],
+      ["tbx_gakka", profile.department]
+    ], used);
+    markNamesUsed(["tbx_smail", "tbx_smail_R"], used);
+
+    if (genderValues[profile.gender] && fillRadioByNameValue("rbt_sex", genderValues[profile.gender])) count += 1;
+    markNamesUsed(["rbt_sex"], used);
+
+    if (birthDate) {
+      count += fillDirectValues([
+        ["ddl_birthY", birthDate[1]],
+        ["ddl_birthM", String(Number(birthDate[2]))],
+        ["ddl_birthD", String(Number(birthDate[3]))]
+      ], used);
+    }
+
+    if (phoneDigits) {
+      const phoneChunks = [
+        phoneDigits.slice(0, 3),
+        phoneDigits.slice(3, 7),
+        phoneDigits.slice(7)
+      ];
+      count += fillSplitByNames(["tbx_keitai1", "tbx_keitai2", "tbx_keitai3"], phoneChunks);
+      count += fillSplitByNames(["tbx_tel11", "tbx_tel12", "tbx_tel13"], phoneChunks);
+      markNamesUsed(["tbx_keitai1", "tbx_keitai2", "tbx_keitai3", "tbx_tel11", "tbx_tel12", "tbx_tel13"], used);
+    }
+
+    if (postalDigits) {
+      count += fillSplitByNames(["tbx_zip1", "tbx_zip2"], [
+        postalDigits.slice(0, 3),
+        postalDigits.slice(3)
+      ]);
+      markNamesUsed(["tbx_zip1", "tbx_zip2"], used);
+    }
+
+    if (graduationDate) {
+      count += fillDirectValues([
+        ["ddl_sotsuyY", graduationDate[1]],
+        ["ddl_sotsuyM", String(Number(graduationDate[2]))],
+        ["ddl_sotsuk", "卒業予定"]
+      ], used);
+    }
+
+    if (fillByName("cbx_kflg", "on")) count += 1;
+    markNamesUsed(["cbx_kflg", "tbx_kzip1", "tbx_kzip2", "ddl_kken", "tbx_kaddr1", "tbx_kaddr2"], used);
+
+    return count;
+  }
+
+  function fillAxolProfile(profile, used) {
+    if (!location.hostname.endsWith("axol.jp")) return 0;
+
+    let count = 0;
+    const phoneDigits = compactDigits(profile.phone);
+    const postalDigits = compactDigits(profile.postalCode);
+    const birthDate = String(profile.birthDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const graduationDate = String(profile.graduationDate || "").match(/^(\d{4})-(\d{2})$/);
+    const address = splitJapaneseAddressParts(profile.address);
+    const genderValues = { 男性: "1", 男: "1", 女性: "2", 女: "2", その他: "4", 回答しない: "4" };
+
+    count += fillDirectValues([
+      ["kanji_sei", profile.lastName],
+      ["kanji_na", profile.firstName],
+      ["kana_sei", profile.lastNameKana],
+      ["kana_na", profile.firstNameKana],
+      ["keng", address.prefecture],
+      ["jushog1", toFullWidth(address.city)],
+      ["jushog2", toFullWidth(address.street)],
+      ["jushog3", toFullWidth(address.building)],
+      ["email", profile.email],
+      ["email2", profile.email],
+      ["c_school_name", profile.university],
+      ["c_gakubu_name", profile.faculty],
+      ["c_gakka_name", profile.department]
+    ], used);
+
+    if (genderValues[profile.gender] && fillRadioByNameValue("sex", genderValues[profile.gender])) count += 1;
+    markNamesUsed(["sex"], used);
+
+    if (birthDate) {
+      count += fillDirectValues([
+        ["birth_Y", birthDate[1]],
+        ["birth_m", birthDate[2]],
+        ["birth_d", birthDate[3]]
+      ], used);
+    }
+
+    if (phoneDigits) {
+      const phoneChunks = [
+        phoneDigits.slice(0, 3),
+        phoneDigits.slice(3, 7),
+        phoneDigits.slice(7)
+      ];
+      count += fillSplitByNames(["telg_h", "telg_m", "telg_l"], phoneChunks);
+      count += fillSplitByNames(["keitai_h", "keitai_m", "keitai_l"], phoneChunks);
+      markNamesUsed(["telg_kaigai", "telg_h", "telg_m", "telg_l", "keitai_kaigai", "keitai_h", "keitai_m", "keitai_l"], used);
+    }
+
+    if (postalDigits) {
+      count += fillSplitByNames(["yubing_h", "yubing_l"], [
+        postalDigits.slice(0, 3),
+        postalDigits.slice(3)
+      ]);
+      markNamesUsed(["yubing_kaigai", "yubing_h", "yubing_l"], used);
+    }
+
+    if (graduationDate) {
+      count += fillDirectValues([
+        ["c_school_to_Y", graduationDate[1]],
+        ["c_school_to_m", graduationDate[2]],
+        ["c_school_to_kubun", "卒業予定"]
+      ], used);
+    }
+
+    return count;
+  }
+
   function fillControl(element, value) {
     if (!value || element.disabled || element.readOnly) return false;
 
@@ -508,6 +676,8 @@
     const used = new Set();
     let filledCount = fillE2rProfile(profile, used);
     filledCount += fillIwebsProfile(profile, used);
+    filledCount += fillSnarProfile(profile, used);
+    filledCount += fillAxolProfile(profile, used);
 
     for (const definition of FIELD_DEFINITIONS) {
       const value = getProfileValue(profile, definition.key);
