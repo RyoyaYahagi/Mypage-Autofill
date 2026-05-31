@@ -13,6 +13,7 @@ const fillButton = document.getElementById("fill-button");
 const optionsButton = document.getElementById("options-button");
 const statusEl = document.getElementById("status");
 const pageStatusEl = document.getElementById("page-status");
+const PROFILE_KEY = "profile";
 
 function setStatus(message, type = "") {
   statusEl.textContent = message;
@@ -25,8 +26,20 @@ async function getActiveTab() {
 }
 
 async function hasProfile() {
-  const { profile } = await chrome.storage.local.get("profile");
+  const profile = await getStoredProfile();
   return Boolean(profile && Object.values(profile).some((value) => String(value || "").trim()));
+}
+
+async function getStoredProfile() {
+  const sessionData = await chrome.storage.session.get(PROFILE_KEY);
+  if (sessionData[PROFILE_KEY]) return sessionData[PROFILE_KEY];
+
+  const localData = await chrome.storage.local.get(PROFILE_KEY);
+  if (!localData[PROFILE_KEY]) return null;
+
+  await chrome.storage.session.set({ [PROFILE_KEY]: localData[PROFILE_KEY] });
+  await chrome.storage.local.remove(PROFILE_KEY);
+  return localData[PROFILE_KEY];
 }
 
 async function injectAndFill(tabId, profile) {
@@ -60,11 +73,11 @@ async function initialize() {
     } else if (!supportedSite) {
       setStatus("対象: https://*.axol.jp/*, https://*.snar.jp/*, https://www.e2r.jp/eARTH/*, https://*.i-webs.jp/*", "error");
     } else {
-      setStatus("入力内容を確認してから実行してください。");
+      setStatus("入力内容を確認してから実行してください。プロフィールはブラウザ終了まで保持します。");
     }
   } catch (error) {
     fillButton.disabled = true;
-    setStatus(`初期化に失敗しました: ${error.message}`, "error");
+    setStatus("初期化に失敗しました。ページを再読み込みしてからもう一度試してください。", "error");
   }
 }
 
@@ -74,7 +87,12 @@ fillButton.addEventListener("click", async () => {
 
   try {
     const tab = await getActiveTab();
-    const { profile } = await chrome.storage.local.get("profile");
+    if (!getSupportedSite(tab?.url)) {
+      setStatus("対象ページを開いてから実行してください。", "error");
+      return;
+    }
+
+    const profile = await getStoredProfile();
     const result = await injectAndFill(tab.id, profile);
 
     if (!result?.ok) {
@@ -84,7 +102,7 @@ fillButton.addEventListener("click", async () => {
 
     setStatus(`${result.filledCount}件入力しました。送信前に内容を確認してください。`, "success");
   } catch (error) {
-    setStatus(`入力に失敗しました: ${error.message}`, "error");
+    setStatus("入力に失敗しました。ページを再読み込みしてからもう一度試してください。", "error");
   } finally {
     fillButton.disabled = false;
   }
