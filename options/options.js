@@ -20,27 +20,15 @@ function writeForm(profile = {}) {
 }
 
 async function loadProfile() {
-  const sessionData = await chrome.storage.session.get(PROFILE_KEY);
-  let profile = sessionData[PROFILE_KEY];
-
-  if (!profile) {
-    const localData = await chrome.storage.local.get(PROFILE_KEY);
-    profile = localData[PROFILE_KEY];
-    if (profile) {
-      await chrome.storage.session.set({ [PROFILE_KEY]: profile });
-      await chrome.storage.local.remove(PROFILE_KEY);
-    }
-  }
-
+  const { profile } = await chrome.storage.local.get(PROFILE_KEY);
   writeForm(profile);
 }
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    await chrome.storage.session.set({ [PROFILE_KEY]: readForm() });
-    await chrome.storage.local.remove(PROFILE_KEY);
-    setStatus("保存しました。ブラウザ終了時に削除されます。");
+    await chrome.storage.local.set({ [PROFILE_KEY]: readForm() });
+    setStatus("保存しました。");
   } catch (error) {
     setStatus("保存に失敗しました。もう一度試してください。", true);
   }
@@ -48,7 +36,6 @@ form.addEventListener("submit", async (event) => {
 
 clearButton.addEventListener("click", async () => {
   try {
-    await chrome.storage.session.remove(PROFILE_KEY);
     await chrome.storage.local.remove(PROFILE_KEY);
     form.reset();
     setStatus("削除しました。");

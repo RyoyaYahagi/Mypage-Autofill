@@ -26,20 +26,8 @@ async function getActiveTab() {
 }
 
 async function hasProfile() {
-  const profile = await getStoredProfile();
+  const { profile } = await chrome.storage.local.get(PROFILE_KEY);
   return Boolean(profile && Object.values(profile).some((value) => String(value || "").trim()));
-}
-
-async function getStoredProfile() {
-  const sessionData = await chrome.storage.session.get(PROFILE_KEY);
-  if (sessionData[PROFILE_KEY]) return sessionData[PROFILE_KEY];
-
-  const localData = await chrome.storage.local.get(PROFILE_KEY);
-  if (!localData[PROFILE_KEY]) return null;
-
-  await chrome.storage.session.set({ [PROFILE_KEY]: localData[PROFILE_KEY] });
-  await chrome.storage.local.remove(PROFILE_KEY);
-  return localData[PROFILE_KEY];
 }
 
 async function injectAndFill(tabId, profile) {
@@ -73,7 +61,7 @@ async function initialize() {
     } else if (!supportedSite) {
       setStatus("対象: https://*.axol.jp/*, https://*.snar.jp/*, https://www.e2r.jp/eARTH/*, https://*.i-webs.jp/*", "error");
     } else {
-      setStatus("入力内容を確認してから実行してください。プロフィールはブラウザ終了まで保持します。");
+      setStatus("入力内容を確認してから実行してください。プロフィールはこのChrome拡張内に保存されています。");
     }
   } catch (error) {
     fillButton.disabled = true;
@@ -92,7 +80,7 @@ fillButton.addEventListener("click", async () => {
       return;
     }
 
-    const profile = await getStoredProfile();
+    const { profile } = await chrome.storage.local.get(PROFILE_KEY);
     const result = await injectAndFill(tab.id, profile);
 
     if (!result?.ok) {
