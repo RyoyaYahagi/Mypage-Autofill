@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My Page Autofill 設定</title>
+    <link rel="stylesheet" href="options.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>プロフィール設定</h1>
+        <p>保存した情報はこのChrome拡張のローカルストレージにのみ保存されます。</p>
+      </header>
+
+      <form id="profile-form">
+        <section>
+          <h2>基本情報</h2>
+          <div class="grid">
+            <label>姓<input name="lastName" autocomplete="family-name"></label>
+            <label>名<input name="firstName" autocomplete="given-name"></label>
+            <label>姓カナ<input name="lastNameKana"></label>
+            <label>名カナ<input name="firstNameKana"></label>
+            <label>性別
+              <select name="gender">
+                <option value="">未設定</option>
+                <option value="男性">男性</option>
+                <option value="女性">女性</option>
+                <option value="その他">その他</option>
+                <option value="回答しない">回答しない</option>
+              </select>
+            </label>
+            <label>生年月日<input name="birthDate" type="date"></label>
+          </div>
+        </section>
+
+        <section>
+          <h2>連絡先</h2>
+          <div class="grid">
+            <label>メール<input name="email" type="email" autocomplete="email"></label>
+            <label>電話番号<input name="phone" inputmode="tel" autocomplete="tel"></label>
+            <label>郵便番号<input name="postalCode" inputmode="numeric" autocomplete="postal-code"></label>
+            <label class="wide">住所<input name="address" autocomplete="street-address"></label>
+          </div>
+        </section>
+
+        <section>
+          <h2>学校情報</h2>
+          <div class="grid">
+            <label>大学<input name="university"></label>
+            <label>学部<input name="faculty"></label>
+            <label>学科<input name="department"></label>
+            <label>卒業予定年月<input name="graduationDate" type="month"></label>
+          </div>
+        </section>
+
+        <div class="actions">
+          <button type="submit">保存</button>
+          <button id="clear-button" type="button" class="secondary">削除</button>
+        </div>
+        <p id="status" role="status"></p>
+      </form>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
