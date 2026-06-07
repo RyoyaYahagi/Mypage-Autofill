@@ -404,7 +404,7 @@
   }
 
   function fillIwebsProfile(profile, used) {
-    if (!location.hostname.endsWith("i-webs.jp")) return 0;
+    if (!location.hostname.endsWith("i-webs.jp") && location.hostname !== "www.recruit.sony.co.jp") return 0;
 
     let count = 0;
     const phoneDigits = compactDigits(profile.phone);
