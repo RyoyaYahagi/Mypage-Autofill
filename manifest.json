@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "AXOL/SNAR/e2r/i-webs/Sony系マイページのプロフィール入力をローカル保存データから補助します。",
   "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["https://*.axol.jp/*", "https://*.snar.jp/*", "https://www.e2r.jp/eARTH/*", "https://*.i-webs.jp/*", "https://www.recruit.sony.co.jp/*"],
+  "host_permissions": ["https://*.axol.jp/*", "https://*.snar.jp/*", "https://www.e2r.jp/eARTH/*", "https://*.i-webs.jp/*", "https://www.recruit.sony.co.jp/*", "https://www.asahi-kasei-info.com/*"],
   "action": {
     "default_popup": "popup/popup.html",
     "default_title": "My Page Autofill"
